@@ -27,15 +27,12 @@ class IdTokenResponse extends BearerTokenResponse
     private Configuration $config;
     private ?CurrentRequestServiceInterface $currentRequestService;
 
-    /**
-     * @param string|Key|null $encryptionKey
-     */
     public function __construct(
         IdentityRepositoryInterface $identityRepository,
         ClaimExtractor $claimExtractor,
         Configuration $config,
-        CurrentRequestServiceInterface $currentRequestService = null,
-        $encryptionKey = null,
+        ?CurrentRequestServiceInterface $currentRequestService = null,
+        Key|string|null $encryptionKey = null,
     ) {
         $this->identityRepository = $identityRepository;
         $this->claimExtractor = $claimExtractor;
