@@ -16,6 +16,7 @@ use OpenIDConnect\ClaimExtractor;
 use OpenIDConnect\Claims\ClaimSet;
 use OpenIDConnect\Grant\AuthCodeGrant;
 use OpenIDConnect\IdTokenResponse;
+use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 
 class PassportServiceProvider extends Passport\PassportServiceProvider
 {
@@ -47,7 +48,7 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
         $this->registerClaimExtractor();
     }
 
-    public function makeAuthorizationServer(): AuthorizationServer
+    protected function makeAuthorizationServer(?ResponseTypeInterface $responseType = null): AuthorizationServer
     {
         $cryptKey = $this->makeCryptKey('private');
         $encryptionKey = app(Encrypter::class)->getKey();
@@ -101,4 +102,5 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
         });
     }
 }
+
 
