@@ -19,7 +19,7 @@ use OpenIDConnect\IdTokenResponse;
 
 class PassportServiceProvider extends Passport\PassportServiceProvider
 {
-    public function register()
+    public function register(): void
     {
         parent::register();
 
@@ -29,7 +29,7 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
         );
     }
 
-    public function boot()
+    public function boot(): void
     {
         parent::boot();
 
@@ -78,7 +78,7 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
      *
      * @return AuthCodeGrant
      */
-    protected function buildAuthCodeGrant()
+    protected function buildAuthCodeGrant(): AuthCodeGrant
     {
         return new AuthCodeGrant(
             $this->app->make(Passport\Bridge\AuthCodeRepository::class),
@@ -101,3 +101,4 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
         });
     }
 }
+
