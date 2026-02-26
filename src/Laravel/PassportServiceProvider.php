@@ -53,6 +53,13 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
         $cryptKey = $this->makeCryptKey('private');
         $encryptionKey = app(Encrypter::class)->getKey();
 
+        $publicKey = config('passport.public_key');
+        if ($publicKey) {
+            $publicKey = str_replace('\\n', "\n", $publicKey);
+        } else {
+            $publicKey = 'file://' . \Laravel\Passport\Passport::keyPath('oauth-public.key');
+        }
+
         $responseType = new IdTokenResponse(
             app(config('openid.repositories.identity')),
             app(ClaimExtractor::class),
@@ -62,6 +69,7 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
             ),
             app(LaravelCurrentRequestService::class),
             $encryptionKey,
+            JwksController::computeKidFromPublicKey($publicKey),
         );
 
         return new AuthorizationServer(
