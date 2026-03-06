@@ -9,19 +9,15 @@ use PHPUnit\Framework\TestCase;
 
 class IdentityEntityTest extends TestCase
 {
-    public function test_identity_entity_has_claims_property()
-    {
-        $this->assertTrue(property_exists(new IdentityEntity(), 'claims'));
-    }
-
     public function test_identity_entity_has_get_claims_method()
     {
         $this->assertTrue(method_exists(new IdentityEntity(), 'getClaims'));
     }
 
-    public function test_identity_entity_has_set_claims_method()
+    public function test_identity_entity_get_claims_returns_array()
     {
-        $this->assertTrue(method_exists(new IdentityEntity(), 'setClaims'));
+        $entity = new IdentityEntity();
+        $this->assertIsArray($entity->getClaims());
     }
 
     public function test_identity_entity_has_identifier_property()

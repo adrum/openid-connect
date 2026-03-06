@@ -5,16 +5,14 @@ declare(strict_types=1);
 namespace OpenIDConnect\Entities;
 
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
-use OpenIDConnect\Claims\Traits\WithClaims;
 use OpenIDConnect\Interfaces\IdentityEntityInterface;
 
 class IdentityEntity implements IdentityEntityInterface
 {
     use EntityTrait;
-    use WithClaims;
 
     /**
-     * @return string[]
+     * @return array<string, mixed>
      */
     public function getClaims(): array
     {

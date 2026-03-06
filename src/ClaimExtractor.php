@@ -66,8 +66,8 @@ class ClaimExtractor
 
     /**
      * @param string[]|ScopeEntityInterface[] $scopes
-     * @param string[] $claims
-     * @return string[]
+     * @param array<string, mixed> $claims
+     * @return array<string, mixed>
      */
     public function extract(array $scopes, array $claims): array
     {
