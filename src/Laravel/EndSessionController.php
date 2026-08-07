@@ -232,7 +232,20 @@ class EndSessionController
         // of which client is asking, and the signature alone establishes that.
         $claims = $token->claims();
 
-        if ($claims->get('iss') !== rtrim(url('/'), '/')) {
+        $expectedIssuer = $this->expectedIssuer();
+
+        if ($claims->get('iss') !== $expectedIssuer) {
+            // Logged, because the likeliest cause is not an attack but a
+            // scheme mismatch: url('/') follows the incoming request, so an OP
+            // behind a TLS-terminating proxy without trusted proxies
+            // configured reports http:// while its own id_tokens say https://.
+            // Every hint then fails this check and single sign-out quietly
+            // stops working. Pin openid.end_session.issuer to rule it out.
+            Log::warning('OIDC end session: id_token_hint issuer does not match.', [
+                'expected' => $expectedIssuer,
+                'actual' => $claims->get('iss'),
+            ]);
+
             return null;
         }
 
@@ -247,6 +260,8 @@ class EndSessionController
         if (is_array($audience) && count($audience) === 1 && is_string($audience[0])) {
             return $audience[0];
         }
+
+        Log::warning('OIDC end session: id_token_hint has no usable audience.');
 
         return null;
     }
@@ -280,6 +295,25 @@ class EndSessionController
         }
 
         return $uri;
+    }
+
+    /**
+     * The `iss` an id_token_hint must carry.
+     *
+     * Defaults to url('/'), which matches how IdTokenResponse derives the
+     * issuer when minting the token -- but both follow the incoming request,
+     * so they only agree when every request reaches the app with the same
+     * scheme and host. Pin it when that is not guaranteed.
+     */
+    private function expectedIssuer(): string
+    {
+        $configured = config('openid.end_session.issuer');
+
+        if (is_string($configured) && $configured !== '') {
+            return rtrim($configured, '/');
+        }
+
+        return rtrim(url('/'), '/');
     }
 
     /**

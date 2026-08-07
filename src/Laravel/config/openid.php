@@ -102,6 +102,17 @@ return [
         'confirm' => false,
 
         /**
+         * The `iss` an id_token_hint must carry. Null derives it from url('/').
+         *
+         * That default follows the incoming request, so an OP behind a
+         * TLS-terminating proxy without trusted proxies configured reports
+         * http:// while its own id_tokens say https://. Every hint then fails
+         * the issuer check and single sign-out quietly stops working. Pin it
+         * if the app is not guaranteed to see a consistent scheme and host.
+         */
+        'issuer' => null,
+
+        /**
          * The view rendered when confirm is enabled. Publish the package views
          * with `php artisan vendor:publish --tag=openid-views` to restyle it,
          * or point this at your own. For anything beyond a view -- an Inertia
