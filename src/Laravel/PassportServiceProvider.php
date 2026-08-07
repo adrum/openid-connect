@@ -16,6 +16,8 @@ use OpenIDConnect\ClaimExtractor;
 use OpenIDConnect\Claims\ClaimSet;
 use OpenIDConnect\Grant\AuthCodeGrant;
 use OpenIDConnect\IdTokenResponse;
+use OpenIDConnect\Interfaces\PostLogoutRedirectUriRepositoryInterface;
+use OpenIDConnect\Interfaces\SessionLogoutHandlerInterface;
 
 class PassportServiceProvider extends Passport\PassportServiceProvider
 {
@@ -27,6 +29,11 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
             __DIR__ . '/config/openid.php',
             'openid'
         );
+
+        // bindIf so an application can override either seam by binding its own
+        // implementation before this provider registers.
+        $this->app->bindIf(SessionLogoutHandlerInterface::class, SessionLogoutHandler::class);
+        $this->app->bindIf(PostLogoutRedirectUriRepositoryInterface::class, PostLogoutRedirectUriRepository::class);
     }
 
     public function boot()

@@ -59,5 +59,50 @@ return [
          * - /oauth/jwks
          */
         'jwks' => true,
+        /**
+         * When set to true, this package will expose the RP-Initiated Logout
+         * end session endpoint.
+         * - /oauth/logout
+         *
+         * Off by default: it adds a route that ends user sessions, so opting
+         * in should be a decision rather than an upgrade side effect.
+         */
+        'end_session' => false,
+    ],
+
+    /**
+     * RP-Initiated Logout. Only relevant when routes.end_session is enabled.
+     *
+     * @see https://openid.net/specs/openid-connect-rpinitiated-1_0.html
+     */
+    'end_session' => [
+        /**
+         * Middleware for the end session endpoint. It needs whatever group
+         * starts the session, since it has to be able to end it.
+         */
+        'middleware' => ['web'],
+
+        /**
+         * The guard whose session is ended.
+         */
+        'guard' => 'web',
+
+        /**
+         * Require a verified id_token_hint before honouring a
+         * post_logout_redirect_uri.
+         *
+         * With this off, a bare client_id is accepted as the RP's identity.
+         * That is permitted by the spec and the redirect is still restricted
+         * to URIs registered by that client, but the claim itself is
+         * unauthenticated -- anyone can name any client.
+         */
+        'require_id_token_hint' => true,
+
+        /**
+         * Where the browser goes when there is no usable
+         * post_logout_redirect_uri. The logout itself has already happened by
+         * this point.
+         */
+        'default_redirect' => '/',
     ],
 ];
