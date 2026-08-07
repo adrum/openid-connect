@@ -88,18 +88,33 @@ return [
         'middleware' => ['web'],
 
         /**
-         * Ask the end-user to confirm before ending their session.
+         * When to ask the end-user to confirm before ending their session.
          *
-         * Section 2 recommends this, and the reason is worth spelling out: the
-         * endpoint answers GET, and a GET carries no CSRF token, so without a
-         * prompt any page on the internet can end a user's session at the OP
-         * with nothing more than an <img> tag -- and with it every SSO session
-         * that session backs.
+         *   'unverified' (default) - prompt unless the request carries a
+         *                            verified id_token_hint issued to the
+         *                            signed-in user.
+         *   'always'               - always prompt.
+         *   'never'                - never prompt.
          *
-         * Off by default only because turning it on changes an existing
-         * integration from a redirect into a rendered page.
+         * The default is what section 2 asks for:
+         *
+         *   "the OP SHOULD ask the End-User whether to log out of the OP as
+         *    well. Furthermore, the OP MUST ask the End-User this question if
+         *    an id_token_hint was not provided or if the supplied ID Token
+         *    does not belong to the current OP session with the RP and/or
+         *    currently logged in End-User."
+         *
+         * It also draws the line in the right place in practice. The endpoint
+         * answers GET, and a GET carries no CSRF token, so a request with no
+         * hint may be a drive-by <img src="...end_session"> that ends the
+         * user's session -- and every SSO session behind it -- without them
+         * doing anything. A verified hint for the signed-in user cannot be
+         * that, which is why it is the one case allowed to skip the prompt,
+         * and it is also every legitimate RP-initiated logout.
+         *
+         * true and false are accepted as aliases for 'always' and 'never'.
          */
-        'confirm' => false,
+        'confirm' => 'unverified',
 
         /**
          * The `iss` an id_token_hint must carry. Null derives it from url('/').

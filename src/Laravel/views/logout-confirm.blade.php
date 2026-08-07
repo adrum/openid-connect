@@ -101,10 +101,21 @@
 
         button:hover { opacity: .9; }
 
-        button:focus-visible {
+        button:focus-visible,
+        .secondary:focus-visible {
             outline: 2px solid var(--accent);
             outline-offset: 2px;
         }
+
+        .secondary {
+            display: inline-block;
+            margin-top: 1rem;
+            font-size: .875rem;
+            color: var(--muted);
+            text-decoration: none;
+        }
+
+        .secondary:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -125,6 +136,12 @@
 
             <button type="submit">{{ __('Sign out') }}</button>
         </form>
+
+        {{-- Declining stays here. RP-Initiated Logout defines no error channel
+             back to the relying party -- post_logout_redirect_uri means "the
+             logout happened", so sending a declined request there would tell
+             the RP something untrue. --}}
+        <a class="secondary" href="{{ url('/') }}">{{ __('Stay signed in') }}</a>
     </main>
 </body>
 </html>

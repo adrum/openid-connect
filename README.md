@@ -197,16 +197,35 @@ origin.
 
 #### Asking the user to confirm
 
-The endpoint answers `GET`, and a `GET` carries no CSRF token, so by default any page on the internet
-can end a user's session at the OP with nothing more than an `<img>` tag — and with it every SSO
-session that session backs. Section 2 recommends prompting the user for this reason. Enable it with
-`openid.end_session.confirm`.
+Section 2 makes this conditional:
 
-When it's on, a logout request with a live session renders a confirmation page instead of acting.
-The request is parked server side and the page posts back a one-time token; the parameters used are
-the parked ones, not the resubmitted ones, so a tampered form can't swap in a different
-`post_logout_redirect_uri` after the user has seen the page. Requests with no session to end skip
-the prompt.
+> the OP SHOULD ask the End-User whether to log out of the OP as well. Furthermore, the OP MUST ask
+> the End-User this question if an id_token_hint was not provided or if the supplied ID Token does
+> not belong to the current OP session with the RP and/or currently logged in End-User.
+
+`openid.end_session.confirm` follows that, and defaults to `'unverified'`:
+
+| Value | Behaviour |
+| --- | --- |
+| `'unverified'` | Prompt unless the request carries a verified `id_token_hint` issued to the signed-in user. |
+| `'always'` | Always prompt. |
+| `'never'` | Never prompt. |
+
+The default draws the line where it matters in practice. The endpoint answers `GET`, and a `GET`
+carries no CSRF token, so a request arriving with no hint may be a drive-by
+`<img src="https://op.example/oauth/logout">` that ends the user's session — and every SSO session
+behind it — without them doing anything. A verified hint issued to the signed-in user cannot be
+that, which is why it's the one case permitted to skip the prompt, and it's also every legitimate
+RP-initiated logout. Requests with no session to end skip the prompt regardless.
+
+When the prompt renders, the request is parked server side and the page posts back a one-time token.
+The parameters used are the parked ones, not the resubmitted ones, so a tampered form can't swap in
+a different `post_logout_redirect_uri` after the user has seen the page. The `client_id` handed to
+the view is the one the OP resolved, not the one the caller asserted.
+
+Declining stays on the OP. RP-Initiated Logout defines no error channel back to the RP — unlike the
+authorization endpoint, there's no `access_denied` equivalent, and `post_logout_redirect_uri` means
+"the logout happened", so sending a declined request there would tell the RP something untrue.
 
 Restyle the page by publishing the views, or point `openid.end_session.confirmation_view` at your
 own:

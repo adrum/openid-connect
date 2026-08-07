@@ -54,19 +54,24 @@ class EndSessionController
 
     public function __invoke(Request $request): Response
     {
-        $parameters = $this->pullConfirmedParameters($request);
+        $confirmed = $this->pullConfirmedParameters($request);
+        $parameters = $confirmed ?? $this->parametersFrom($request);
 
-        if ($parameters === null) {
-            $parameters = $this->parametersFrom($request);
-
-            if ($this->requiresConfirmation($request)) {
-                return $this->requestConfirmation($request, $parameters);
-            }
-        }
+        // The hint is verified up front rather than after confirming, because
+        // whether to confirm at all depends on what it turns out to say.
+        $hint = $this->verifyIdTokenHint($parameters['id_token_hint']);
 
         // Resolved before the session is destroyed so the two concerns stay
         // independent of each other.
-        $clientId = $this->resolveClient($parameters);
+        $clientId = $this->resolveClient($parameters, $hint);
+
+        if ($confirmed === null && $this->requiresConfirmation($request, $hint)) {
+            // Park the client we resolved, so the view is looking at a value
+            // the OP vouches for rather than one the caller asserted.
+            $parameters['client_id'] = $clientId;
+
+            return $this->requestConfirmation($request, $parameters);
+        }
 
         $this->logoutHandler->logout($request);
 
@@ -105,10 +110,28 @@ class EndSessionController
 
     /**
      * Whether the end-user should be asked before their session is ended.
+     *
+     * Section 2 makes this conditional rather than all-or-nothing:
+     *
+     *   "At the Logout Endpoint, the OP SHOULD ask the End-User whether to log
+     *    out of the OP as well. Furthermore, the OP MUST ask the End-User this
+     *    question if an id_token_hint was not provided or if the supplied ID
+     *    Token does not belong to the current OP session with the RP and/or
+     *    currently logged in End-User."
+     *
+     * So a verified hint for the signed-in user is the one case where skipping
+     * the prompt is permitted -- which is also the case that matters for user
+     * experience, since it is every legitimate RP-initiated logout. Everything
+     * else is a MUST, including the drive-by <img src="...end_session"> that
+     * arrives with no hint at all.
+     *
+     * @param array{client: string, subject: string|null}|null $hint
      */
-    private function requiresConfirmation(Request $request): bool
+    private function requiresConfirmation(Request $request, ?array $hint): bool
     {
-        if (! config('openid.end_session.confirm', false)) {
+        $mode = $this->confirmationMode();
+
+        if ($mode === 'never') {
             return false;
         }
 
@@ -116,9 +139,47 @@ class EndSessionController
             return false;
         }
 
+        $guard = Auth::guard(config('openid.end_session.guard', 'web'));
+
         // Nothing to confirm when there is no session to end. Skipping the
         // prompt here also keeps crawlers and prefetchers off it.
-        return Auth::guard(config('openid.end_session.guard', 'web'))->check();
+        if (! $guard->check()) {
+            return false;
+        }
+
+        if ($mode === 'always') {
+            return true;
+        }
+
+        // 'unverified': prompt unless the hint is both valid and about the
+        // person whose session is on the line.
+        if ($hint === null || $hint['subject'] === null) {
+            return true;
+        }
+
+        return ! hash_equals((string) $guard->id(), $hint['subject']);
+    }
+
+    /**
+     * When to prompt: 'always', 'unverified' or 'never'.
+     *
+     * Booleans are accepted for the config to read naturally either way.
+     */
+    private function confirmationMode(): string
+    {
+        $configured = config('openid.end_session.confirm', 'unverified');
+
+        if ($configured === true) {
+            return 'always';
+        }
+
+        if ($configured === false) {
+            return 'never';
+        }
+
+        return in_array($configured, ['always', 'unverified', 'never'], true)
+            ? $configured
+            : 'unverified';
     }
 
     /**
@@ -180,12 +241,20 @@ class EndSessionController
      * Attribute the logout request to a client, or null if it cannot be
      * attributed to one.
      *
-     * @param array<string, string|null> $parameters
+     * @param array<string, string|null>                       $parameters
+     * @param array{client: string, subject: string|null}|null $hint
      */
-    private function resolveClient(array $parameters): ?string
+    private function resolveClient(array $parameters, ?array $hint): ?string
     {
+        if ($hint !== null) {
+            return $hint['client'];
+        }
+
+        // A hint that was supplied but did not verify attributes the request to
+        // nobody. Falling back to client_id here would let a forged hint be
+        // downgraded into an unauthenticated one.
         if ($parameters['id_token_hint'] !== null) {
-            return $this->clientFromIdTokenHint($parameters['id_token_hint']);
+            return null;
         }
 
         // Section 2 allows client_id to identify the RP on its own, but it is
@@ -200,10 +269,17 @@ class EndSessionController
     }
 
     /**
-     * Verify an id_token_hint and return the client it was issued to.
+     * Verify an id_token_hint, returning the client it was issued to and the
+     * subject it was issued about, or null if it does not verify.
+     *
+     * @return array{client: string, subject: string|null}|null
      */
-    private function clientFromIdTokenHint(string $idToken): ?string
+    private function verifyIdTokenHint(?string $idToken): ?array
     {
+        if ($idToken === null) {
+            return null;
+        }
+
         try {
             $configuration = $this->jwtConfiguration();
 
@@ -250,20 +326,31 @@ class EndSessionController
         }
 
         $audience = $claims->get('aud');
+        $client = null;
 
         if (is_string($audience) && $audience !== '') {
-            return $audience;
+            $client = $audience;
+        } elseif (is_array($audience) && count($audience) === 1 && is_string($audience[0])) {
+            // A single-element array is the usual shape. More than one audience
+            // leaves the requesting client ambiguous, so refuse rather than
+            // guess.
+            $client = $audience[0];
         }
 
-        // A single-element array is the usual shape. More than one audience
-        // leaves the requesting client ambiguous, so refuse rather than guess.
-        if (is_array($audience) && count($audience) === 1 && is_string($audience[0])) {
-            return $audience[0];
+        if ($client === null) {
+            Log::warning('OIDC end session: id_token_hint has no usable audience.');
+
+            return null;
         }
 
-        Log::warning('OIDC end session: id_token_hint has no usable audience.');
+        $subject = $claims->get('sub');
 
-        return null;
+        return [
+            'client' => $client,
+            // Carried so the caller can check the hint is about the person
+            // whose session is about to end, not merely a well-formed token.
+            'subject' => is_string($subject) || is_int($subject) ? (string) $subject : null,
+        ];
     }
 
     /**
