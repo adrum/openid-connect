@@ -195,8 +195,36 @@ the user out and sends them to `default_redirect`. **Do not** substitute an impl
 accepts the URI as given: that turns the endpoint into an open redirect on your identity provider's
 origin.
 
-Both seams can be replaced by binding `SessionLogoutHandlerInterface` (what "logged out" means) or
-`PostLogoutRedirectUriRepositoryInterface` (where registrations live) in your own service provider.
+#### Asking the user to confirm
+
+The endpoint answers `GET`, and a `GET` carries no CSRF token, so by default any page on the internet
+can end a user's session at the OP with nothing more than an `<img>` tag — and with it every SSO
+session that session backs. Section 2 recommends prompting the user for this reason. Enable it with
+`openid.end_session.confirm`.
+
+When it's on, a logout request with a live session renders a confirmation page instead of acting.
+The request is parked server side and the page posts back a one-time token; the parameters used are
+the parked ones, not the resubmitted ones, so a tampered form can't swap in a different
+`post_logout_redirect_uri` after the user has seen the page. Requests with no session to end skip
+the prompt.
+
+Restyle the page by publishing the views, or point `openid.end_session.confirmation_view` at your
+own:
+
+```sh
+php artisan vendor:publish --tag=openid-views
+```
+
+For anything that isn't a Blade view — an Inertia page, a SPA route — bind
+`LogoutConfirmationInterface` instead.
+
+#### Replaceable pieces
+
+- `SessionLogoutHandlerInterface` — what "logged out" means.
+- `PostLogoutRedirectUriRepositoryInterface` — where registrations live.
+- `LogoutConfirmationInterface` — how the user is asked to confirm.
+
+The endpoint path is `openid.end_session.path`, in case `oauth/logout` is already taken in your app.
 
 The spec requires the endpoint to accept `POST` as well as `GET`. A logout redirect arriving from
 another origin carries no CSRF token, so exclude the route from CSRF verification if you want the

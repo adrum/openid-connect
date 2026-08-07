@@ -16,6 +16,7 @@ use OpenIDConnect\ClaimExtractor;
 use OpenIDConnect\Claims\ClaimSet;
 use OpenIDConnect\Grant\AuthCodeGrant;
 use OpenIDConnect\IdTokenResponse;
+use OpenIDConnect\Interfaces\LogoutConfirmationInterface;
 use OpenIDConnect\Interfaces\PostLogoutRedirectUriRepositoryInterface;
 use OpenIDConnect\Interfaces\SessionLogoutHandlerInterface;
 
@@ -34,6 +35,7 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
         // implementation before this provider registers.
         $this->app->bindIf(SessionLogoutHandlerInterface::class, SessionLogoutHandler::class);
         $this->app->bindIf(PostLogoutRedirectUriRepositoryInterface::class, PostLogoutRedirectUriRepository::class);
+        $this->app->bindIf(LogoutConfirmationInterface::class, LogoutConfirmation::class);
     }
 
     public function boot()
@@ -43,6 +45,12 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
         $this->publishes([
             __DIR__ . '/config/openid.php' => $this->app->configPath('openid.php'),
         ], ['openid', 'openid-config']);
+
+        $this->loadViewsFrom(__DIR__ . '/views', 'openid');
+
+        $this->publishes([
+            __DIR__ . '/views' => $this->app->resourcePath('views/vendor/openid'),
+        ], ['openid', 'openid-views']);
 
         $this->loadRoutesFrom(__DIR__.'/routes/web.php');
 

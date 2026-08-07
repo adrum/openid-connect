@@ -77,10 +77,37 @@ return [
      */
     'end_session' => [
         /**
+         * The path the end session endpoint is served from.
+         */
+        'path' => 'oauth/logout',
+
+        /**
          * Middleware for the end session endpoint. It needs whatever group
          * starts the session, since it has to be able to end it.
          */
         'middleware' => ['web'],
+
+        /**
+         * Ask the end-user to confirm before ending their session.
+         *
+         * Section 2 recommends this, and the reason is worth spelling out: the
+         * endpoint answers GET, and a GET carries no CSRF token, so without a
+         * prompt any page on the internet can end a user's session at the OP
+         * with nothing more than an <img> tag -- and with it every SSO session
+         * that session backs.
+         *
+         * Off by default only because turning it on changes an existing
+         * integration from a redirect into a rendered page.
+         */
+        'confirm' => false,
+
+        /**
+         * The view rendered when confirm is enabled. Publish the package views
+         * with `php artisan vendor:publish --tag=openid-views` to restyle it,
+         * or point this at your own. For anything beyond a view -- an Inertia
+         * page, say -- bind LogoutConfirmationInterface instead.
+         */
+        'confirmation_view' => 'openid::logout-confirm',
 
         /**
          * The guard whose session is ended.

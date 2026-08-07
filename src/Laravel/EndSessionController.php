@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace OpenIDConnect\Laravel;
 
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Laravel\Passport\Passport;
 use Lcobucci\JWT\Configuration;
@@ -13,8 +13,10 @@ use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Hmac;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
+use OpenIDConnect\Interfaces\LogoutConfirmationInterface;
 use OpenIDConnect\Interfaces\PostLogoutRedirectUriRepositoryInterface;
 use OpenIDConnect\Interfaces\SessionLogoutHandlerInterface;
+use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 /**
@@ -29,33 +31,52 @@ use Throwable;
  */
 class EndSessionController
 {
+    /**
+     * Where a pending, not-yet-confirmed logout request is parked.
+     */
+    private const CONFIRMATION_SESSION_KEY = 'openid_logout_confirmation';
+
     private SessionLogoutHandlerInterface $logoutHandler;
 
     private PostLogoutRedirectUriRepositoryInterface $redirectUris;
 
+    private LogoutConfirmationInterface $confirmation;
+
     public function __construct(
         SessionLogoutHandlerInterface $logoutHandler,
-        PostLogoutRedirectUriRepositoryInterface $redirectUris
+        PostLogoutRedirectUriRepositoryInterface $redirectUris,
+        LogoutConfirmationInterface $confirmation
     ) {
         $this->logoutHandler = $logoutHandler;
         $this->redirectUris = $redirectUris;
+        $this->confirmation = $confirmation;
     }
 
-    public function __invoke(Request $request): RedirectResponse
+    public function __invoke(Request $request): Response
     {
+        $parameters = $this->pullConfirmedParameters($request);
+
+        if ($parameters === null) {
+            $parameters = $this->parametersFrom($request);
+
+            if ($this->requiresConfirmation($request)) {
+                return $this->requestConfirmation($request, $parameters);
+            }
+        }
+
         // Resolved before the session is destroyed so the two concerns stay
         // independent of each other.
-        $clientId = $this->resolveClient($request);
+        $clientId = $this->resolveClient($parameters);
 
         $this->logoutHandler->logout($request);
 
-        $redirectUri = $this->resolvePostLogoutRedirectUri($request, $clientId);
+        $redirectUri = $this->resolvePostLogoutRedirectUri($parameters, $clientId);
 
         if ($redirectUri === null) {
             return redirect()->to((string) config('openid.end_session.default_redirect', '/'));
         }
 
-        $state = $request->input('state');
+        $state = $parameters['state'];
 
         if (is_string($state) && $state !== '') {
             $redirectUri .= (strpos($redirectUri, '?') === false ? '?' : '&')
@@ -66,15 +87,105 @@ class EndSessionController
     }
 
     /**
+     * The logout request parameters, as supplied by the RP.
+     *
+     * @return array<string, string|null>
+     */
+    private function parametersFrom(Request $request): array
+    {
+        $parameters = [];
+
+        foreach (['id_token_hint', 'post_logout_redirect_uri', 'state', 'client_id'] as $name) {
+            $value = $request->input($name);
+            $parameters[$name] = is_string($value) && $value !== '' ? $value : null;
+        }
+
+        return $parameters;
+    }
+
+    /**
+     * Whether the end-user should be asked before their session is ended.
+     */
+    private function requiresConfirmation(Request $request): bool
+    {
+        if (! config('openid.end_session.confirm', false)) {
+            return false;
+        }
+
+        if (! $request->hasSession()) {
+            return false;
+        }
+
+        // Nothing to confirm when there is no session to end. Skipping the
+        // prompt here also keeps crawlers and prefetchers off it.
+        return Auth::guard(config('openid.end_session.guard', 'web'))->check();
+    }
+
+    /**
+     * Park the request and ask the end-user to confirm it.
+     *
+     * @param array<string, string|null> $parameters
+     */
+    private function requestConfirmation(Request $request, array $parameters): Response
+    {
+        $token = bin2hex(random_bytes(32));
+
+        $request->session()->put(self::CONFIRMATION_SESSION_KEY, [
+            'token' => $token,
+            'parameters' => $parameters,
+        ]);
+
+        return $this->confirmation->respond($request, $token, $parameters);
+    }
+
+    /**
+     * The parked parameters, if this request is a valid confirmation of one.
+     *
+     * The parameters come back from the session rather than from the
+     * submission, so the confirmed logout is the one the user was shown --
+     * a tampered form cannot swap in a different post_logout_redirect_uri
+     * after the fact.
+     *
+     * @return array<string, string|null>|null
+     */
+    private function pullConfirmedParameters(Request $request): ?array
+    {
+        if (! $request->hasSession()) {
+            return null;
+        }
+
+        $submitted = $request->input('_openid_logout_confirmation');
+
+        if (! is_string($submitted) || $submitted === '') {
+            return null;
+        }
+
+        // Pulled unconditionally: a confirmation token is good for one attempt
+        // whether or not it matches, so a wrong guess cannot be retried against
+        // the same parked request.
+        $parked = $request->session()->pull(self::CONFIRMATION_SESSION_KEY);
+
+        if (! is_array($parked) || ! isset($parked['token'], $parked['parameters'])) {
+            return null;
+        }
+
+        if (! is_string($parked['token']) || ! hash_equals($parked['token'], $submitted)) {
+            return null;
+        }
+
+        return is_array($parked['parameters']) ? $parked['parameters'] : null;
+    }
+
+    /**
      * Attribute the logout request to a client, or null if it cannot be
      * attributed to one.
+     *
+     * @param array<string, string|null> $parameters
      */
-    private function resolveClient(Request $request): ?string
+    private function resolveClient(array $parameters): ?string
     {
-        $idTokenHint = $request->input('id_token_hint');
-
-        if (is_string($idTokenHint) && $idTokenHint !== '') {
-            return $this->clientFromIdTokenHint($idTokenHint);
+        if ($parameters['id_token_hint'] !== null) {
+            return $this->clientFromIdTokenHint($parameters['id_token_hint']);
         }
 
         // Section 2 allows client_id to identify the RP on its own, but it is
@@ -85,9 +196,7 @@ class EndSessionController
             return null;
         }
 
-        $clientId = $request->input('client_id');
-
-        return is_string($clientId) && $clientId !== '' ? $clientId : null;
+        return $parameters['client_id'];
     }
 
     /**
@@ -145,12 +254,14 @@ class EndSessionController
     /**
      * The post_logout_redirect_uri to send the browser to, or null to fall back
      * to the OP's own landing page.
+     *
+     * @param array<string, string|null> $parameters
      */
-    private function resolvePostLogoutRedirectUri(Request $request, ?string $clientId): ?string
+    private function resolvePostLogoutRedirectUri(array $parameters, ?string $clientId): ?string
     {
-        $uri = $request->input('post_logout_redirect_uri');
+        $uri = $parameters['post_logout_redirect_uri'];
 
-        if (! is_string($uri) || $uri === '') {
+        if ($uri === null) {
             return null;
         }
 

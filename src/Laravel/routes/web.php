@@ -24,6 +24,6 @@ if (config('openid.routes.end_session', false)) {
     // verification by the application, because a logout redirect arriving from
     // another origin carries no token.
     Route::middleware(config('openid.end_session.middleware', ['web']))
-        ->match(['get', 'post'], '/oauth/logout', EndSessionController::class)
+        ->match(['get', 'post'], config('openid.end_session.path', 'oauth/logout'), EndSessionController::class)
         ->name('openid.end_session_endpoint');
 }
