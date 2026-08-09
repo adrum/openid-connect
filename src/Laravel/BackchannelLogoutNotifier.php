@@ -54,7 +54,13 @@ class BackchannelLogoutNotifier
             return;
         }
 
-        $builder = new LogoutTokenBuilder($this->jwt->forSigning(), $this->issuer());
+        $builder = new LogoutTokenBuilder(
+            $this->jwt->forSigning(),
+            $this->issuer(),
+            // The same key identifier the JWKS endpoint publishes, so a relying
+            // party can pick the right key out of the set.
+            JwksController::computeKidFromPublicKey(JwksController::getPublicKey()),
+        );
 
         $includeSubject = (bool) config('openid.backchannel_logout.include_subject', true);
 

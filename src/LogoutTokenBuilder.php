@@ -30,6 +30,7 @@ class LogoutTokenBuilder
     public function __construct(
         private Configuration $config,
         private string $issuer,
+        private ?string $kid = null,
     ) {
     }
 
@@ -59,8 +60,18 @@ class LogoutTokenBuilder
 
         $issuedAt = new DateTimeImmutable();
 
-        $builder = $this->config
-            ->builder()
+        $builder = $this->config->builder();
+
+        // Without this the token is unverifiable by any relying party that
+        // fetches a JWKS with more than one key -- and by some that fetch one
+        // with exactly one, since a keyed JWKS is selected by `kid` and a
+        // library handed a key set with nothing to match on will refuse rather
+        // than guess. The id_token carries the same header for the same reason.
+        if ($this->kid !== null && $this->kid !== '') {
+            $builder = $builder->withHeader('kid', $this->kid);
+        }
+
+        $builder = $builder
             ->issuedBy($this->issuer)
             ->permittedFor($audience)
             ->issuedAt($issuedAt)

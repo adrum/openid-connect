@@ -14,12 +14,45 @@ class LogoutTokenBuilderTest extends TestCase
 {
     private const ISSUER = 'https://op.example';
 
-    private function builder(?Configuration $config = null): LogoutTokenBuilder
+    private function builder(?Configuration $config = null, ?string $kid = null): LogoutTokenBuilder
     {
         return new LogoutTokenBuilder(
             $config ?? ConfigutationFactory::default(),
             self::ISSUER,
+            $kid,
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function headerOf(string $token): array
+    {
+        return ConfigutationFactory::default()
+            ->parser()
+            ->parse($token)
+            ->headers()
+            ->all();
+    }
+
+    /**
+     * A relying party selects the verification key out of the JWKS by `kid`.
+     * Omit it and a key set with more than one entry -- and, in some libraries,
+     * any keyed set at all -- cannot be matched, so the token is unverifiable
+     * no matter how correct its claims are.
+     */
+    public function testItCarriesTheKeyIdentifierInTheHeader(): void
+    {
+        $token = $this->builder(null, 'key-one')->build('client-one', 'user-42', 'session-abc');
+
+        $this->assertSame('key-one', $this->headerOf($token)['kid']);
+    }
+
+    public function testItOmitsTheKeyIdentifierWhenThereIsNoneToGive(): void
+    {
+        $token = $this->builder()->build('client-one', 'user-42', 'session-abc');
+
+        $this->assertArrayNotHasKey('kid', $this->headerOf($token));
     }
 
     /**
