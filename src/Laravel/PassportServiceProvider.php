@@ -23,6 +23,7 @@ use OpenIDConnect\Interfaces\PostLogoutRedirectUriRepositoryInterface;
 use OpenIDConnect\Interfaces\SessionClientRegistryInterface;
 use OpenIDConnect\Interfaces\SessionIdResolverInterface;
 use OpenIDConnect\Interfaces\SessionLogoutHandlerInterface;
+use OpenIDConnect\Laravel\Console\PruneSessionClientsCommand;
 
 class PassportServiceProvider extends Passport\PassportServiceProvider
 {
@@ -77,6 +78,10 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
         ], ['openid', 'openid-migrations']);
 
         $this->loadRoutesFrom(__DIR__ . '/routes/web.php');
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([PruneSessionClientsCommand::class]);
+        }
 
         $tokens_can = config('openid.passport.tokens_can', null);
         if ($tokens_can) {
