@@ -158,6 +158,105 @@ discovery document by naming the route `openid.userinfo`.
 Route::get('/oauth/userinfo', 'YourController@userinfo')->middleware('xxx')->name('openid.userinfo');
 ```
 
+### RP-Initiated Logout
+
+An [RP-Initiated Logout](https://openid.net/specs/openid-connect-rpinitiated-1_0.html) end session
+endpoint is available at `/oauth/logout`, letting a relying party end the user's session at the OP.
+It is disabled by default; enable it with the `openid.routes.end_session` config key.
+
+The endpoint always ends the local session. The request parameters only decide where the browser is
+sent afterwards:
+
+- `id_token_hint` — an id_token previously issued by this OP. Its signature is verified and its
+  `aud` identifies the requesting client. Expiry is deliberately *not* checked, since by the time a
+  user logs out their id_token has usually expired.
+- `post_logout_redirect_uri` — only honoured when it exactly matches a URI registered by that
+  client. Anything else falls back to `openid.end_session.default_redirect`.
+- `state` — echoed back on the redirect, if one happens.
+- `client_id` — accepted in place of `id_token_hint` only when
+  `openid.end_session.require_id_token_hint` is set to `false`.
+
+Registered URIs are read from a `post_logout_redirect_uris` attribute on the Passport client model.
+Passport's schema has no such column, so add one:
+
+```php
+Schema::table('oauth_clients', function (Blueprint $table) {
+    $table->json('post_logout_redirect_uris')->nullable();
+});
+```
+
+```php
+// on your client model
+protected $casts = ['post_logout_redirect_uris' => 'array'];
+```
+
+Until that column exists nothing is registered, so no redirect is ever honoured — the endpoint logs
+the user out and sends them to `default_redirect`. **Do not** substitute an implementation that
+accepts the URI as given: that turns the endpoint into an open redirect on your identity provider's
+origin.
+
+#### Asking the user to confirm
+
+Section 2 makes this conditional:
+
+> the OP SHOULD ask the End-User whether to log out of the OP as well. Furthermore, the OP MUST ask
+> the End-User this question if an id_token_hint was not provided or if the supplied ID Token does
+> not belong to the current OP session with the RP and/or currently logged in End-User.
+
+`openid.end_session.confirm` follows that, and defaults to `'unverified'`:
+
+| Value | Behaviour |
+| --- | --- |
+| `'unverified'` | Prompt unless the request carries a verified `id_token_hint` issued to the signed-in user. |
+| `'always'` | Always prompt. |
+| `'never'` | Never prompt. |
+
+The default draws the line where it matters in practice. The endpoint answers `GET`, and a `GET`
+carries no CSRF token, so a request arriving with no hint may be a drive-by
+`<img src="https://op.example/oauth/logout">` that ends the user's session — and every SSO session
+behind it — without them doing anything. A verified hint issued to the signed-in user cannot be
+that, which is why it's the one case permitted to skip the prompt, and it's also every legitimate
+RP-initiated logout. Requests with no session to end skip the prompt regardless.
+
+When the prompt renders, the request is parked server side and the page posts back a one-time token.
+The parameters used are the parked ones, not the resubmitted ones, so a tampered form can't swap in
+a different `post_logout_redirect_uri` after the user has seen the page. The `client_id` handed to
+the view is the one the OP resolved, not the one the caller asserted.
+
+Declining stays on the OP. RP-Initiated Logout defines no error channel back to the RP — unlike the
+authorization endpoint, there's no `access_denied` equivalent, and `post_logout_redirect_uri` means
+"the logout happened", so sending a declined request there would tell the RP something untrue.
+
+Restyle the page by publishing the views, or point `openid.end_session.confirmation_view` at your
+own:
+
+```sh
+php artisan vendor:publish --tag=openid-views
+```
+
+For anything that isn't a Blade view — an Inertia page, a SPA route — bind
+`LogoutConfirmationInterface` instead.
+
+#### Replaceable pieces
+
+- `SessionLogoutHandlerInterface` — what "logged out" means.
+- `PostLogoutRedirectUriRepositoryInterface` — where registrations live.
+- `LogoutConfirmationInterface` — how the user is asked to confirm.
+
+The endpoint path is `openid.end_session.path`, in case `oauth/logout` is already taken in your app.
+
+The spec requires the endpoint to accept `POST` as well as `GET`. A logout redirect arriving from
+another origin carries no CSRF token, so exclude the route from CSRF verification if you want the
+`POST` form to work:
+
+```php
+// bootstrap/app.php
+$middleware->validateCsrfTokens(except: ['oauth/logout']);
+```
+
+The route is named `openid.end_session_endpoint`, which the discovery document picks up and publishes
+as `end_session_endpoint` automatically.
+
 ## Support
 Found a bug? Got a feature request?  [Create an issue](https://github.com/ronvanderheijden/openid-connect/issues).
 
