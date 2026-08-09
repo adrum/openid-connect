@@ -27,6 +27,7 @@ class IdTokenResponse extends BearerTokenResponse
 
     private Configuration $config;
     private ?CurrentRequestServiceInterface $currentRequestService;
+    private ?string $kid;
 
     public function __construct(
         IdentityRepositoryInterface $identityRepository,
@@ -34,12 +35,14 @@ class IdTokenResponse extends BearerTokenResponse
         Configuration $config,
         ?CurrentRequestServiceInterface $currentRequestService = null,
         Key|string|null $encryptionKey = null,
+        ?string $kid = null,
     ) {
         $this->identityRepository = $identityRepository;
         $this->claimExtractor = $claimExtractor;
         $this->config = $config;
         $this->currentRequestService = $currentRequestService;
         $this->encryptionKey = $encryptionKey;
+        $this->kid = $kid;
     }
 
     protected function getBuilder(
@@ -55,13 +58,19 @@ class IdTokenResponse extends BearerTokenResponse
             $issuer = 'https://' . $_SERVER['HTTP_HOST'];
         }
 
-        return $this->config
+        $builder = $this->config
             ->builder()
             ->permittedFor($accessToken->getClient()->getIdentifier())
             ->issuedBy($issuer)
             ->issuedAt($dateTimeImmutableObject)
             ->expiresAt($dateTimeImmutableObject->add(new DateInterval('PT1H')))
             ->relatedTo($userEntity->getIdentifier());
+
+        if ($this->kid) {
+            $builder = $builder->withHeader('kid', $this->kid);
+        }
+
+        return $builder;
     }
 
     protected function getExtraParams(AccessTokenEntityInterface $accessToken): array

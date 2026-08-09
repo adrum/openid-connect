@@ -62,6 +62,7 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
             ),
             app(LaravelCurrentRequestService::class),
             $encryptionKey,
+            JwksController::computeKidFromPublicKey(JwksController::getPublicKey()),
         );
 
         return new AuthorizationServer(
