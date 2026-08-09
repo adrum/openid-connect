@@ -12,7 +12,7 @@ class DiscoveryController
     public function __invoke(Request $request)
     {
         $response = [
-            'issuer' => url('/'),
+            'issuer' => Issuer::resolve(),
             'authorization_endpoint' => route('passport.authorizations.authorize'),
             'token_endpoint' => route('passport.token'),
             'jwks_uri' => route('openid.jwks'),

@@ -378,20 +378,12 @@ class EndSessionController
     /**
      * The `iss` an id_token_hint must carry.
      *
-     * Defaults to url('/'), which matches how IdTokenResponse derives the
-     * issuer when minting the token -- but both follow the incoming request,
-     * so they only agree when every request reaches the app with the same
-     * scheme and host. Pin it when that is not guaranteed.
+     * The same value IdTokenResponse stamps into the token, resolved the same
+     * way, so that the two cannot disagree.
      */
     private function expectedIssuer(): string
     {
-        $configured = config('openid.end_session.issuer');
-
-        if (is_string($configured) && $configured !== '') {
-            return rtrim($configured, '/');
-        }
-
-        return rtrim(url('/'), '/');
+        return Issuer::resolve();
     }
 
     /**
