@@ -11,6 +11,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use OpenIDConnect\Laravel\LogoutUriGuard;
 use RuntimeException;
 
 /**
@@ -56,8 +57,23 @@ class SendLogoutToken implements ShouldQueue
     ) {
     }
 
-    public function handle(): void
+    public function handle(LogoutUriGuard $guard): void
     {
+        // Checked here rather than when the notification was raised, because
+        // resolving the host is a DNS round trip and that would have happened
+        // inside the logout request the end-user was waiting on.
+        if (!$guard->isDeliverable($this->uri)) {
+            Log::warning('OIDC back-channel logout: refusing to deliver to a private address.', [
+                'client_id' => $this->clientIdentifier,
+                'uri' => $this->uri,
+            ]);
+
+            // Returned, not thrown: retrying resolves the same way, and a
+            // failed job here would be reporting a misconfiguration as an
+            // outage every time the queue got round to it.
+            return;
+        }
+
         $response = Http::asForm()
             ->timeout((int) config('openid.backchannel_logout.timeout', 5))
             // Section 2.5: the OP does not follow redirects here. A redirect is
