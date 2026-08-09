@@ -117,19 +117,12 @@ class BackchannelLogoutNotifier
     }
 
     /**
-     * The `iss` of the logout token, which the relying party checks against the
-     * issuer it knows. Shares the end session endpoint's pinned value for the
-     * same reason: url('/') follows the incoming request, and behind a
-     * TLS-terminating proxy that produces an issuer no relying party accepts.
+     * The `iss` of the logout token, which the relying party checks against
+     * the issuer it learned at login. Shared with everything else that names
+     * this OP.
      */
     private function issuer(): string
     {
-        $configured = config('openid.end_session.issuer');
-
-        if (is_string($configured) && $configured !== '') {
-            return rtrim($configured, '/');
-        }
-
-        return rtrim(url('/'), '/');
+        return Issuer::resolve();
     }
 }
