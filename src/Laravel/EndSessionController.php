@@ -7,11 +7,7 @@ namespace OpenIDConnect\Laravel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Laravel\Passport\Passport;
 use Lcobucci\JWT\Configuration;
-use Lcobucci\JWT\Signer;
-use Lcobucci\JWT\Signer\Hmac;
-use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use OpenIDConnect\Interfaces\LogoutConfirmationInterface;
 use OpenIDConnect\Interfaces\PostLogoutRedirectUriRepositoryInterface;
@@ -42,14 +38,18 @@ class EndSessionController
 
     private LogoutConfirmationInterface $confirmation;
 
+    private PassportJwtConfiguration $jwt;
+
     public function __construct(
         SessionLogoutHandlerInterface $logoutHandler,
         PostLogoutRedirectUriRepositoryInterface $redirectUris,
-        LogoutConfirmationInterface $confirmation
+        LogoutConfirmationInterface $confirmation,
+        PassportJwtConfiguration $jwt
     ) {
         $this->logoutHandler = $logoutHandler;
         $this->redirectUris = $redirectUris;
         $this->confirmation = $confirmation;
+        $this->jwt = $jwt;
     }
 
     public function __invoke(Request $request): Response
@@ -409,30 +409,6 @@ class EndSessionController
      */
     private function jwtConfiguration(): Configuration
     {
-        /** @var Signer $signer */
-        $signer = app(config('openid.signer'));
-
-        if ($signer instanceof Hmac) {
-            $key = $this->keyFrom('passport.private_key', 'oauth-private.key');
-
-            return Configuration::forSymmetricSigner($signer, $key);
-        }
-
-        $key = $this->keyFrom('passport.public_key', 'oauth-public.key');
-
-        // The signing key is never used -- this configuration only verifies --
-        // but forAsymmetricSigner requires one.
-        return Configuration::forAsymmetricSigner($signer, $key, $key);
-    }
-
-    private function keyFrom(string $configKey, string $keyFile): InMemory
-    {
-        $key = str_replace('\\n', "\n", (string) config($configKey, ''));
-
-        if ($key !== '') {
-            return InMemory::plainText($key);
-        }
-
-        return InMemory::file(Passport::keyPath($keyFile));
+        return $this->jwt->forVerification();
     }
 }
