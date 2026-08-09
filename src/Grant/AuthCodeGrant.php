@@ -7,7 +7,8 @@ namespace OpenIDConnect\Grant;
 use DateInterval;
 use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
-use League\OAuth2\Server\RequestTypes\AuthorizationRequest;
+use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface;
+use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use OpenIDConnect\Interfaces\CurrentRequestServiceInterface;
 use OpenIDConnect\Interfaces\SessionIdResolverInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -19,10 +20,6 @@ use Psr\Http\Message\ResponseInterface;
  */
 class AuthCodeGrant extends \League\OAuth2\Server\Grant\AuthCodeGrant
 {
-    private ResponseInterface $psr7Response;
-    private CurrentRequestServiceInterface $currentRequestService;
-    private ?SessionIdResolverInterface $sessionIdResolver;
-
     /**
      * @param AuthCodeRepositoryInterface $authCodeRepository
      * @param RefreshTokenRepositoryInterface $refreshTokenRepository
@@ -34,24 +31,23 @@ class AuthCodeGrant extends \League\OAuth2\Server\Grant\AuthCodeGrant
      *                                                          `sid` claim. Null disables it.
      * @throws \Exception
      */
-    public function __construct(AuthCodeRepositoryInterface $authCodeRepository,
-                                RefreshTokenRepositoryInterface $refreshTokenRepository,
-                                DateInterval $authCodeTTL,
-                                ResponseInterface $psr7Response,
-                                CurrentRequestServiceInterface $currentRequestService,
-                                ?SessionIdResolverInterface $sessionIdResolver = null)
-    {
+    public function __construct(
+        AuthCodeRepositoryInterface $authCodeRepository,
+        RefreshTokenRepositoryInterface $refreshTokenRepository,
+        DateInterval $authCodeTTL,
+        private ResponseInterface $psr7Response,
+        private CurrentRequestServiceInterface $currentRequestService,
+        private ?SessionIdResolverInterface $sessionIdResolver = null,
+    ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
-        $this->psr7Response = $psr7Response;
-        $this->currentRequestService = $currentRequestService;
-        $this->sessionIdResolver = $sessionIdResolver;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function completeAuthorizationRequest(AuthorizationRequest $authorizationRequest)
-    {
+    public function completeAuthorizationRequest(
+        AuthorizationRequestInterface $authorizationRequest,
+    ): ResponseTypeInterface {
         // See https://github.com/steverhoades/oauth2-openid-connect-server/issues/47#issuecomment-1228370632
 
         /** @var RedirectResponse $response */

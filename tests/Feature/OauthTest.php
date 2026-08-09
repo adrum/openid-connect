@@ -18,13 +18,13 @@ class OauthTest extends TestCase
     {
         $response = Psr7ResponseFactory::default(
             $accessToken = AccessTokenFactory::default(),
-            RefreshTokenFactory::withAccessToken($accessToken)
+            RefreshTokenFactory::withAccessToken($accessToken),
         );
         $this->defaultResponseAsserts($response);
 
         $json = json_decode($response->getBody()->getContents());
         $this->defaultTokenAsserts($json);
 
-        $this->assertObjectNotHasAttribute('id_token', $json);
+        $this->assertObjectNotHasProperty('id_token', $json);
     }
 }

@@ -20,6 +20,7 @@ use OpenIDConnect\Tests\Factories\KeyFactory;
 use OpenIDConnect\Tests\Factories\Psr7ResponseFactory;
 use OpenIDConnect\Tests\Factories\RefreshTokenFactory;
 use OpenIDConnect\Tests\Feature\Traits\WithDefaultAsserts;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 class TokensTest extends TestCase
@@ -80,13 +81,11 @@ class TokensTest extends TestCase
         $token = $config->parser()->parse($json->id_token);
         $this->assertSame(
             'jon.snow@dorne.com',
-            $token->claims()->get('email')
+            $token->claims()->get('email'),
         );
     }
 
-    /**
-     * @group dev
-     */
+    #[Group('dev')]
     public function test_id_token_with_custom_scope_returns_custom_claim()
     {
         $scopes = ['openid', 'custom'];
@@ -98,7 +97,7 @@ class TokensTest extends TestCase
                 new IdentityRepository(),
                 new ClaimExtractor(new ClaimSet('custom', ['what_he_knows'])),
                 $config = ConfigutationFactory::default(),
-            )
+            ),
         );
         $this->defaultResponseAsserts($response);
 

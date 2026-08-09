@@ -34,7 +34,7 @@ class PostLogoutRedirectUriRepository implements PostLogoutRedirectUriRepository
             $registered = preg_split('/[\s,]+/', $registered, -1, PREG_SPLIT_NO_EMPTY);
         }
 
-        if (! is_array($registered)) {
+        if (!is_array($registered)) {
             return false;
         }
 

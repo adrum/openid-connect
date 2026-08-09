@@ -6,7 +6,7 @@ namespace OpenIDConnect\Tests\Factories;
 
 use GuzzleHttp\Psr7;
 use Lcobucci\JWT\Configuration;
-use League\OAuth2\Server\CryptKey;
+use League\OAuth2\Server\CryptKeyInterface;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
 use OpenIDConnect\ClaimExtractor;
@@ -19,11 +19,11 @@ class Psr7ResponseFactory
         AccessTokenEntityInterface $accessToken,
         RefreshTokenEntityInterface $refreshToken,
         ?IdTokenResponse $response = null,
-        ?CryptKey $privateKey = null,
+        ?CryptKeyInterface $privateKey = null,
     ): Psr7\Response {
         $response = $response ?? IdTokenResponseFactory::default(
             new IdentityRepository(),
-            new ClaimExtractor()
+            new ClaimExtractor(),
         );
 
         $response->setPrivateKey($privateKey ?? KeyFactory::cryptKey());
@@ -44,7 +44,7 @@ class Psr7ResponseFactory
     public static function withIdTokenResponse(
         AccessTokenEntityInterface $accessToken,
         RefreshTokenEntityInterface $refreshToken,
-        IdTokenResponse $response
+        IdTokenResponse $response,
     ): Psr7\Response {
         return (new static())->build($accessToken, $refreshToken, $response);
     }
@@ -60,8 +60,8 @@ class Psr7ResponseFactory
             IdTokenResponseFactory::withConfig(
                 new IdentityRepository(),
                 new ClaimExtractor(),
-                $config
-            )
+                $config,
+            ),
         );
     }
 }

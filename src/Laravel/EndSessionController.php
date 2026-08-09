@@ -32,24 +32,12 @@ class EndSessionController
      */
     private const CONFIRMATION_SESSION_KEY = 'openid_logout_confirmation';
 
-    private SessionLogoutHandlerInterface $logoutHandler;
-
-    private PostLogoutRedirectUriRepositoryInterface $redirectUris;
-
-    private LogoutConfirmationInterface $confirmation;
-
-    private PassportJwtConfiguration $jwt;
-
     public function __construct(
-        SessionLogoutHandlerInterface $logoutHandler,
-        PostLogoutRedirectUriRepositoryInterface $redirectUris,
-        LogoutConfirmationInterface $confirmation,
-        PassportJwtConfiguration $jwt
+        private SessionLogoutHandlerInterface $logoutHandler,
+        private PostLogoutRedirectUriRepositoryInterface $redirectUris,
+        private LogoutConfirmationInterface $confirmation,
+        private PassportJwtConfiguration $jwt,
     ) {
-        $this->logoutHandler = $logoutHandler;
-        $this->redirectUris = $redirectUris;
-        $this->confirmation = $confirmation;
-        $this->jwt = $jwt;
     }
 
     public function __invoke(Request $request): Response
@@ -135,7 +123,7 @@ class EndSessionController
             return false;
         }
 
-        if (! $request->hasSession()) {
+        if (!$request->hasSession()) {
             return false;
         }
 
@@ -143,7 +131,7 @@ class EndSessionController
 
         // Nothing to confirm when there is no session to end. Skipping the
         // prompt here also keeps crawlers and prefetchers off it.
-        if (! $guard->check()) {
+        if (!$guard->check()) {
             return false;
         }
 
@@ -157,7 +145,7 @@ class EndSessionController
             return true;
         }
 
-        return ! hash_equals((string) $guard->id(), $hint['subject']);
+        return !hash_equals((string) $guard->id(), $hint['subject']);
     }
 
     /**
@@ -211,13 +199,13 @@ class EndSessionController
      */
     private function pullConfirmedParameters(Request $request): ?array
     {
-        if (! $request->hasSession()) {
+        if (!$request->hasSession()) {
             return null;
         }
 
         $submitted = $request->input('_openid_logout_confirmation');
 
-        if (! is_string($submitted) || $submitted === '') {
+        if (!is_string($submitted) || $submitted === '') {
             return null;
         }
 
@@ -226,11 +214,11 @@ class EndSessionController
         // the same parked request.
         $parked = $request->session()->pull(self::CONFIRMATION_SESSION_KEY);
 
-        if (! is_array($parked) || ! isset($parked['token'], $parked['parameters'])) {
+        if (!is_array($parked) || !isset($parked['token'], $parked['parameters'])) {
             return null;
         }
 
-        if (! is_string($parked['token']) || ! hash_equals($parked['token'], $submitted)) {
+        if (!is_string($parked['token']) || !hash_equals($parked['token'], $submitted)) {
             return null;
         }
 
@@ -287,10 +275,10 @@ class EndSessionController
 
             $verified = $configuration->validator()->validate(
                 $token,
-                new SignedWith($configuration->signer(), $configuration->verificationKey())
+                new SignedWith($configuration->signer(), $configuration->verificationKey()),
             );
 
-            if (! $verified) {
+            if (!$verified) {
                 return null;
             }
         } catch (Throwable $e) {
@@ -368,12 +356,15 @@ class EndSessionController
         }
 
         if ($clientId === null) {
-            Log::warning('OIDC end session: post_logout_redirect_uri supplied but the request could not be attributed to a client.');
+            Log::warning(
+                'OIDC end session: post_logout_redirect_uri supplied but the request '
+                . 'could not be attributed to a client.',
+            );
 
             return null;
         }
 
-        if (! $this->redirectUris->isRegistered($clientId, $uri)) {
+        if (!$this->redirectUris->isRegistered($clientId, $uri)) {
             Log::warning('OIDC end session: post_logout_redirect_uri is not registered for this client.', [
                 'client_id' => $clientId,
             ]);

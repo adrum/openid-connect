@@ -7,12 +7,12 @@ use OpenIDConnect\Laravel\DiscoveryController;
 use OpenIDConnect\Laravel\EndSessionController;
 use OpenIDConnect\Laravel\JwksController;
 
-if (config('openid.routes.discovery', true)) {
+if (config('openid.routes.jwks', true)) {
     Route::get('/oauth/jwks', JwksController::class)
         ->name('openid.jwks');
 }
 
-if (config('openid.routes.jwks', true)) {
+if (config('openid.routes.discovery', true)) {
     Route::get('/.well-known/openid-configuration', DiscoveryController::class)
         ->name('openid.discovery');
 }

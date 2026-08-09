@@ -66,8 +66,8 @@ class ClaimExtractor
 
     /**
      * @param string[]|ScopeEntityInterface[] $scopes
-     * @param string[] $claims
-     * @return string[]
+     * @param array<string, mixed> $claims
+     * @return array<string, mixed>
      */
     public function extract(array $scopes, array $claims): array
     {
@@ -87,7 +87,7 @@ class ClaimExtractor
                 $extracted,
                 array_filter($claims, function ($key) use ($intersected) {
                     return in_array($key, $intersected);
-                }, ARRAY_FILTER_USE_KEY)
+                }, ARRAY_FILTER_USE_KEY),
             );
         }
         return $extracted;

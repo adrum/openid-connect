@@ -25,7 +25,7 @@ class LogoutConfirmation implements LogoutConfirmationInterface
                 'token' => $token,
                 'parameters' => $parameters,
                 'action' => route('openid.end_session_endpoint'),
-            ]
+            ],
         );
     }
 }

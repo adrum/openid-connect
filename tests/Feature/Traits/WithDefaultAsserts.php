@@ -15,7 +15,7 @@ trait WithDefaultAsserts
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame(
             'application/json; charset=UTF-8',
-            $response->getHeader('content-type')[0]
+            $response->getHeader('content-type')[0],
         );
 
         $response->getBody()->rewind();
@@ -25,7 +25,7 @@ trait WithDefaultAsserts
     {
         $this->assertSame('Bearer', $json->token_type);
         $this->assertSame(3600, $json->expires_in);
-        $this->assertObjectHasAttribute('access_token', $json);
-        $this->assertObjectHasAttribute('refresh_token', $json);
+        $this->assertObjectHasProperty('access_token', $json);
+        $this->assertObjectHasProperty('refresh_token', $json);
     }
 }
