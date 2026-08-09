@@ -6,7 +6,7 @@ namespace OpenIDConnect\Tests\Factories;
 
 use DateInterval;
 use DateTimeImmutable;
-use League\OAuth2\Server\CryptKey;
+use League\OAuth2\Server\CryptKeyInterface;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface;
 use OpenIDConnect\Entities\AccessTokenEntity;
@@ -15,7 +15,7 @@ use OpenIDConnect\Tests\Config;
 class AccessTokenFactory
 {
     private function build(
-        ?CryptKey $cryptKey = null,
+        ?CryptKeyInterface $cryptKey = null,
         ?array $scopes = null,
         ?ClientEntityInterface $client = null,
     ): AccessTokenEntityInterface {
@@ -47,7 +47,7 @@ class AccessTokenFactory
         return (new static())->build(null, ['openid']);
     }
 
-    public static function withCryptKey(CryptKey $cryptKey): AccessTokenEntityInterface
+    public static function withCryptKey(CryptKeyInterface $cryptKey): AccessTokenEntityInterface
     {
         return (new static())->build($cryptKey);
     }
@@ -57,7 +57,7 @@ class AccessTokenFactory
         return (new static())->build(null, $scopes);
     }
 
-    public static function withCryptKeyAndScopes(CryptKey $cryptKey, array $scopes): AccessTokenEntityInterface
+    public static function withCryptKeyAndScopes(CryptKeyInterface $cryptKey, array $scopes): AccessTokenEntityInterface
     {
         return (new static())->build($cryptKey, $scopes);
     }
