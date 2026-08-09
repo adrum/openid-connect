@@ -28,6 +28,7 @@ class IdTokenResponse extends BearerTokenResponse
         private ?CurrentRequestServiceInterface $currentRequestService = null,
         Key|string|null $encryptionKey = null,
         private ?string $kid = null,
+        private ?string $issuer = null,
     ) {
         $this->encryptionKey = $encryptionKey;
     }
@@ -38,7 +39,14 @@ class IdTokenResponse extends BearerTokenResponse
     ): Builder {
         $dateTimeImmutableObject = new DateTimeImmutable();
 
-        if ($this->currentRequestService) {
+        if ($this->issuer !== null && $this->issuer !== '') {
+            // Pinned. Both fallbacks below derive the issuer from the incoming
+            // request, which is only correct while every request reaches the
+            // app with the same scheme and host -- and behind a
+            // TLS-terminating proxy it is not. An id_token minted with the
+            // wrong issuer fails every check a relying party makes against it.
+            $issuer = rtrim($this->issuer, '/');
+        } elseif ($this->currentRequestService) {
             $uri = $this->currentRequestService->getRequest()->getUri();
             $issuer = $uri->getScheme() . '://' . $uri->getHost() . ($uri->getPort() ? ':' . $uri->getPort() : '');
         } else {

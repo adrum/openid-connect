@@ -43,6 +43,23 @@ return [
     ],
 
     /**
+     * The value this OP calls itself. Null derives it from url('/').
+     *
+     * Used everywhere an issuer crosses a trust boundary: the `iss` of every
+     * id_token, the issuer advertised by discovery, the one an id_token_hint
+     * must carry, and the one a back-channel logout token is signed with. They
+     * are all compared for exact equality by somebody, so they have to agree.
+     *
+     * The default derives it from the incoming request, which is fine until
+     * the app sits behind a TLS-terminating proxy: a request arriving as http
+     * then produces `http://...` where the request that minted the token
+     * produced `https://...`, and every comparison fails. Nothing errors --
+     * single sign-on simply stops working. Pin it to APP_URL unless every
+     * request is guaranteed to arrive with the same scheme and host.
+     */
+    'issuer' => null,
+
+    /**
      * The signer to be used
      * Can be Ecdsa, Hmac or RSA
      */

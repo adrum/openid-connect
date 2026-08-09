@@ -78,6 +78,11 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
             app(LaravelCurrentRequestService::class),
             $encryptionKey,
             JwksController::computeKidFromPublicKey(JwksController::getPublicKey()),
+            // Pinned rather than derived from the request that happens to be
+            // exchanging the code, so the `iss` in an id_token matches the one
+            // discovery advertises and the one the end session endpoint expects
+            // back in an id_token_hint.
+            Issuer::resolve(),
         );
 
         return new AuthorizationServer(
