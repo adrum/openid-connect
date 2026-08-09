@@ -6,7 +6,6 @@ namespace OpenIDConnect\Repositories;
 
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface;
-use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
 use OpenIDConnect\Entities\AccessTokenEntity;
 
@@ -15,8 +14,11 @@ class AccessTokenRepository implements AccessTokenRepositoryInterface
     /**
      * @param ScopeEntityInterface[] $scopes
      */
-    public function getNewToken(ClientEntityInterface $clientEntity, array $scopes, ?string $userIdentifier = null): AccessTokenEntityInterface
-    {
+    public function getNewToken(
+        ClientEntityInterface $clientEntity,
+        array $scopes,
+        ?string $userIdentifier = null,
+    ): AccessTokenEntityInterface {
         $accessToken = new AccessTokenEntity();
         $accessToken->setClient($clientEntity);
         foreach ($scopes as $scope) {

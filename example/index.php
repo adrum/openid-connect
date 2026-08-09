@@ -49,7 +49,7 @@ $responseType = new IdTokenResponse(
     Configuration::forSymmetricSigner(
         new Sha256(),
         InMemory::file($privateKeyPath),
-    )
+    ),
 );
 
 // Setup the authorization server
@@ -60,13 +60,13 @@ $server = new \League\OAuth2\Server\AuthorizationServer(
     $privateKeyPath,
     $encryptionKey,
     // [OpenIDConnect] Add the response_type
-    $responseType
+    $responseType,
 );
 
 $grant = new \League\OAuth2\Server\Grant\AuthCodeGrant(
     $authCodeRepository,
     $refreshTokenRepository,
-    new \DateInterval('PT10M') // authorization codes will expire after 10 minutes
+    new \DateInterval('PT10M'), // authorization codes will expire after 10 minutes
 );
 
 $grant->setRefreshTokenTTL(new \DateInterval('P1M')); // refresh tokens will expire after 1 month
@@ -74,14 +74,14 @@ $grant->setRefreshTokenTTL(new \DateInterval('P1M')); // refresh tokens will exp
 // Enable the authentication code grant on the server
 $server->enableGrantType(
     $grant,
-    new \DateInterval('PT1H') // access tokens will expire after 1 hour
+    new \DateInterval('PT1H'), // access tokens will expire after 1 hour
 );
 
 $app = AppFactory::create();
 
 $app->get('/authorize', function (
     ServerRequestInterface $request,
-    ResponseInterface $response
+    ResponseInterface $response,
 ) use ($server) {
     try {
         // Validate the HTTP request and return an AuthorizationRequest object.
@@ -117,7 +117,7 @@ $app->get('/authorize', function (
 
 $app->post('/tokens', function (
     ServerRequestInterface $request,
-    ResponseInterface $response
+    ResponseInterface $response,
 ) use ($server) {
     try {
         // Try to respond to the request

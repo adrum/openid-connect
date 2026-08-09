@@ -11,6 +11,7 @@ use Laravel\Passport\Bridge\ClientRepository;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use League\OAuth2\Server\AuthorizationServer;
+use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use Nyholm\Psr7\Response;
 use OpenIDConnect\ClaimExtractor;
 use OpenIDConnect\Claims\ClaimSet;
@@ -22,13 +23,13 @@ use OpenIDConnect\Interfaces\SessionLogoutHandlerInterface;
 
 class PassportServiceProvider extends Passport\PassportServiceProvider
 {
-    public function register()
+    public function register(): void
     {
         parent::register();
 
         $this->mergeConfigFrom(
             __DIR__ . '/config/openid.php',
-            'openid'
+            'openid',
         );
 
         // bindIf so an application can override either seam by binding its own
@@ -38,7 +39,7 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
         $this->app->bindIf(LogoutConfirmationInterface::class, LogoutConfirmation::class);
     }
 
-    public function boot()
+    public function boot(): void
     {
         parent::boot();
 
@@ -52,7 +53,7 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
             __DIR__ . '/views' => $this->app->resourcePath('views/vendor/openid'),
         ], ['openid', 'openid-views']);
 
-        $this->loadRoutesFrom(__DIR__.'/routes/web.php');
+        $this->loadRoutesFrom(__DIR__ . '/routes/web.php');
 
         $tokens_can = config('openid.passport.tokens_can', null);
         if ($tokens_can) {
@@ -62,12 +63,12 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
         $this->registerClaimExtractor();
     }
 
-    public function makeAuthorizationServer(): AuthorizationServer
+    protected function makeAuthorizationServer(?ResponseTypeInterface $responseType = null): AuthorizationServer
     {
         $cryptKey = $this->makeCryptKey('private');
-        $encryptionKey = app(Encrypter::class)->getKey();
+        $encryptionKey = Passport\Passport::tokenEncryptionKey(app(Encrypter::class));
 
-        $responseType = new IdTokenResponse(
+        $responseType ??= new IdTokenResponse(
             app(config('openid.repositories.identity')),
             app(ClaimExtractor::class),
             Configuration::forSymmetricSigner(
@@ -76,6 +77,7 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
             ),
             app(LaravelCurrentRequestService::class),
             $encryptionKey,
+            JwksController::computeKidFromPublicKey(JwksController::getPublicKey()),
         );
 
         return new AuthorizationServer(
@@ -90,10 +92,8 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
 
     /**
      * Build the Auth Code grant instance.
-     *
-     * @return AuthCodeGrant
      */
-    protected function buildAuthCodeGrant()
+    protected function buildAuthCodeGrant(): AuthCodeGrant
     {
         return new AuthCodeGrant(
             $this->app->make(Passport\Bridge\AuthCodeRepository::class),
@@ -104,7 +104,8 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
         );
     }
 
-    public function registerClaimExtractor() {
+    public function registerClaimExtractor(): void
+    {
         $this->app->singleton(ClaimExtractor::class, function () {
             $customClaimSets = config('openid.custom_claim_sets');
 

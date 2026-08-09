@@ -6,13 +6,11 @@ namespace OpenIDConnect\Claims\Traits;
 
 trait WithClaims
 {
-    /**
-     * @param string[] $claims
-     */
+    /** @var array<array-key, mixed> */
     protected array $claims;
 
     /**
-     * @return string[]
+     * @return array<array-key, mixed>
      */
     public function getClaims(): array
     {
@@ -20,7 +18,7 @@ trait WithClaims
     }
 
     /**
-     * @param string[] $claims
+     * @param array<array-key, mixed> $claims
      */
     public function setClaims(array $claims): void
     {

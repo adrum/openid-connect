@@ -14,7 +14,7 @@ class IdentityEntity implements IdentityEntityInterface
     use WithClaims;
 
     /**
-     * @return string[]
+     * @return array<string, mixed>
      */
     public function getClaims(): array
     {

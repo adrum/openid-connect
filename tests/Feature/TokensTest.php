@@ -81,7 +81,7 @@ class TokensTest extends TestCase
         $token = $config->parser()->parse($json->id_token);
         $this->assertSame(
             'jon.snow@dorne.com',
-            $token->claims()->get('email')
+            $token->claims()->get('email'),
         );
     }
 
@@ -97,7 +97,7 @@ class TokensTest extends TestCase
                 new IdentityRepository(),
                 new ClaimExtractor(new ClaimSet('custom', ['what_he_knows'])),
                 $config = ConfigutationFactory::default(),
-            )
+            ),
         );
         $this->defaultResponseAsserts($response);
 

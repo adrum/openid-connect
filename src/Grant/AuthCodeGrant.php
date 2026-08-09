@@ -19,9 +19,6 @@ use Psr\Http\Message\ResponseInterface;
  */
 class AuthCodeGrant extends \League\OAuth2\Server\Grant\AuthCodeGrant
 {
-    private ResponseInterface $psr7Response;
-    private CurrentRequestServiceInterface $currentRequestService;
-
     /**
      * @param AuthCodeRepositoryInterface $authCodeRepository
      * @param RefreshTokenRepositoryInterface $refreshTokenRepository
@@ -31,22 +28,22 @@ class AuthCodeGrant extends \League\OAuth2\Server\Grant\AuthCodeGrant
      *                                                              Used to get the nonce parameter.
      * @throws \Exception
      */
-    public function __construct(AuthCodeRepositoryInterface $authCodeRepository,
-                                RefreshTokenRepositoryInterface $refreshTokenRepository,
-                                DateInterval $authCodeTTL,
-                                ResponseInterface $psr7Response,
-                                CurrentRequestServiceInterface $currentRequestService)
-    {
+    public function __construct(
+        AuthCodeRepositoryInterface $authCodeRepository,
+        RefreshTokenRepositoryInterface $refreshTokenRepository,
+        DateInterval $authCodeTTL,
+        private ResponseInterface $psr7Response,
+        private CurrentRequestServiceInterface $currentRequestService,
+    ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
-        $this->psr7Response = $psr7Response;
-        $this->currentRequestService = $currentRequestService;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function completeAuthorizationRequest(AuthorizationRequestInterface $authorizationRequest): ResponseTypeInterface
-    {
+    public function completeAuthorizationRequest(
+        AuthorizationRequestInterface $authorizationRequest,
+    ): ResponseTypeInterface {
         // See https://github.com/steverhoades/oauth2-openid-connect-server/issues/47#issuecomment-1228370632
 
         /** @var RedirectResponse $response */

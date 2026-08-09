@@ -19,7 +19,7 @@ class RefreshTokenFactory
         $refreshToken->setAccessToken($accessToken ?? AccessTokenFactory::default());
         $refreshToken->setIdentifier('refresh_token_id');
         $refreshToken->setExpiryDateTime(
-            (new DateTimeImmutable())->add(new DateInterval('PT1H'))
+            (new DateTimeImmutable())->add(new DateInterval('PT1H')),
         );
 
         return $refreshToken;
@@ -31,7 +31,7 @@ class RefreshTokenFactory
     }
 
     public static function withAccessToken(
-        AccessTokenEntityInterface $accessToken
+        AccessTokenEntityInterface $accessToken,
     ): RefreshTokenEntityInterface {
         return (new static())->build($accessToken);
     }

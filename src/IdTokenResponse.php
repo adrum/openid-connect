@@ -6,6 +6,7 @@ namespace OpenIDConnect;
 
 use DateInterval;
 use DateTimeImmutable;
+use Defuse\Crypto\Key;
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Configuration;
 use League\OAuth2\Server\CryptTrait;
@@ -20,33 +21,20 @@ class IdTokenResponse extends BearerTokenResponse
 {
     use CryptTrait;
 
-    protected IdentityRepositoryInterface $identityRepository;
-
-    protected ClaimExtractor $claimExtractor;
-
-    private Configuration $config;
-    private ?CurrentRequestServiceInterface $currentRequestService;
-
-    /**
-     * @param string|Key|null $encryptionKey
-     */
     public function __construct(
-        IdentityRepositoryInterface $identityRepository,
-        ClaimExtractor $claimExtractor,
-        Configuration $config,
-        CurrentRequestServiceInterface $currentRequestService = null,
-        $encryptionKey = null,
+        protected IdentityRepositoryInterface $identityRepository,
+        protected ClaimExtractor $claimExtractor,
+        private Configuration $config,
+        private ?CurrentRequestServiceInterface $currentRequestService = null,
+        Key|string|null $encryptionKey = null,
+        private ?string $kid = null,
     ) {
-        $this->identityRepository = $identityRepository;
-        $this->claimExtractor = $claimExtractor;
-        $this->config = $config;
-        $this->currentRequestService = $currentRequestService;
         $this->encryptionKey = $encryptionKey;
     }
 
     protected function getBuilder(
         AccessTokenEntityInterface $accessToken,
-        IdentityEntityInterface $userEntity
+        IdentityEntityInterface $userEntity,
     ): Builder {
         $dateTimeImmutableObject = new DateTimeImmutable();
 
@@ -57,13 +45,19 @@ class IdTokenResponse extends BearerTokenResponse
             $issuer = 'https://' . $_SERVER['HTTP_HOST'];
         }
 
-        return $this->config
+        $builder = $this->config
             ->builder()
             ->permittedFor($accessToken->getClient()->getIdentifier())
             ->issuedBy($issuer)
             ->issuedAt($dateTimeImmutableObject)
             ->expiresAt($dateTimeImmutableObject->add(new DateInterval('PT1H')))
             ->relatedTo($userEntity->getIdentifier());
+
+        if ($this->kid) {
+            $builder = $builder->withHeader('kid', $this->kid);
+        }
+
+        return $builder;
     }
 
     protected function getExtraParams(AccessTokenEntityInterface $accessToken): array
