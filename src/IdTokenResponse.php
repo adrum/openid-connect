@@ -15,6 +15,7 @@ use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
 use OpenIDConnect\Interfaces\CurrentRequestServiceInterface;
 use OpenIDConnect\Interfaces\IdentityEntityInterface;
 use OpenIDConnect\Interfaces\IdentityRepositoryInterface;
+use OpenIDConnect\Interfaces\SessionClientRegistryInterface;
 
 class IdTokenResponse extends BearerTokenResponse
 {
@@ -26,6 +27,7 @@ class IdTokenResponse extends BearerTokenResponse
 
     private Configuration $config;
     private ?CurrentRequestServiceInterface $currentRequestService;
+    private ?SessionClientRegistryInterface $sessionClientRegistry;
 
     /**
      * @param string|Key|null $encryptionKey
@@ -36,12 +38,14 @@ class IdTokenResponse extends BearerTokenResponse
         Configuration $config,
         CurrentRequestServiceInterface $currentRequestService = null,
         $encryptionKey = null,
+        ?SessionClientRegistryInterface $sessionClientRegistry = null,
     ) {
         $this->identityRepository = $identityRepository;
         $this->claimExtractor = $claimExtractor;
         $this->config = $config;
         $this->currentRequestService = $currentRequestService;
         $this->encryptionKey = $encryptionKey;
+        $this->sessionClientRegistry = $sessionClientRegistry;
     }
 
     protected function getBuilder(
@@ -94,6 +98,31 @@ class IdTokenResponse extends BearerTokenResponse
                 $authCodePayload = json_decode($this->decrypt($body['code']), true, 512, JSON_THROW_ON_ERROR);
                 if (isset($authCodePayload['nonce'])) {
                     $builder = $builder->withClaim('nonce', $authCodePayload['nonce']);
+                }
+
+                // `sid` was put here by AuthCodeGrant at the authorization
+                // endpoint, where the session existed. Note there is no
+                // equivalent for the refresh token grant: a refreshed id_token
+                // carries no `sid`, which is correct -- the OP session it named
+                // may be long gone, and asserting otherwise would have relying
+                // parties tracking a session that cannot be logged out.
+                if (isset($authCodePayload['sid']) && is_string($authCodePayload['sid'])) {
+                    $sessionId = $authCodePayload['sid'];
+
+                    $builder = $builder->withClaim('sid', $sessionId);
+
+                    // Recorded here rather than at the authorization endpoint
+                    // because this is the point at which the client actually
+                    // holds an id_token for the session. A client that started
+                    // the flow but never exchanged its code has nothing to log
+                    // out of, and notifying it would say more about the user
+                    // than it is entitled to know.
+                    if ($this->sessionClientRegistry !== null) {
+                        $this->sessionClientRegistry->remember(
+                            $sessionId,
+                            $accessToken->getClient()->getIdentifier(),
+                        );
+                    }
                 }
             }
         }

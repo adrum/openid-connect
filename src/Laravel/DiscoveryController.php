@@ -43,6 +43,20 @@ class DiscoveryController
             $response['userinfo_endpoint'] = route('openid.userinfo');
         }
 
+        if (config('openid.backchannel_logout.enabled', false)) {
+            $response['backchannel_logout_supported'] = true;
+
+            /**
+             * Advertised together, because this OP always puts a `sid` in the
+             * logout tokens it sends. A relying party reads this key to decide
+             * whether it may key its own sessions on `sid` instead of falling
+             * back to logging the subject out of everything -- so claiming it
+             * while sometimes omitting the claim would strand precisely the
+             * relying parties that believed it.
+             */
+            $response['backchannel_logout_session_supported'] = true;
+        }
+
         return response()->json($response, 200, [], JSON_PRETTY_PRINT);
     }
 }

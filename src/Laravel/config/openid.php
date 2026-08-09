@@ -158,4 +158,73 @@ return [
          */
         'default_redirect' => '/',
     ],
+
+    /**
+     * Back-Channel Logout.
+     *
+     * Ending the session at the OP does not end the sessions the relying
+     * parties opened off the back of it; each of those outlives it, so a user
+     * who signs out of one application stays signed in to the rest. This tells
+     * them, with a signed logout token posted server to server.
+     *
+     * @see https://openid.net/specs/openid-connect-backchannel-1_0.html
+     */
+    'backchannel_logout' => [
+        /**
+         * Off by default, and deliberately a single switch rather than a
+         * per-client one.
+         *
+         * Turning it on changes what every relying party receives: id_tokens
+         * start carrying a `sid` claim, and discovery starts promising
+         * `backchannel_logout_session_supported`. Discovery has no way to say
+         * "for some clients", so the promise is all or nothing, and it should
+         * not arrive as the side effect of an upgrade.
+         *
+         * It also needs the session/client table below to exist. Publish and
+         * run the migration first:
+         *
+         *     php artisan vendor:publish --tag=openid-migrations
+         *
+         * Note that the per-client half of the spec's metadata lives on the
+         * client, not here: applications add a `backchannel_logout_uri` column
+         * to the Passport clients table, and a client that registers no URI is
+         * simply never notified.
+         */
+        'enabled' => false,
+
+        /**
+         * Maps OP sessions to the clients that received an id_token for them,
+         * so a logout notifies the relying parties actually involved rather
+         * than every client on the books.
+         */
+        'table' => 'oidc_session_clients',
+
+        /**
+         * Include a `sub` claim alongside `sid` in the logout token.
+         *
+         * Harmless for a relying party that keys on `sid` and necessary for
+         * one that does not. Turn it off only to avoid telling relying parties
+         * which user a session belonged to -- they already learned that at
+         * login, so this is rarely worth the compatibility cost.
+         */
+        'include_subject' => true,
+
+        /**
+         * The queue logout notifications are dispatched to. Null uses the
+         * default queue.
+         *
+         * Worth separating if logout latency matters: these sit behind
+         * whatever else is queued, and a relying party that has been down for
+         * an hour will be occupying retry slots.
+         */
+        'queue' => null,
+
+        /**
+         * How long to wait on a relying party's endpoint, in seconds.
+         *
+         * Short on purpose. Delivery is retried out of band, so a slow
+         * endpoint should free the worker rather than hold it.
+         */
+        'timeout' => 5,
+    ],
 ];

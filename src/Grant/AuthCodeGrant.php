@@ -9,6 +9,7 @@ use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest;
 use OpenIDConnect\Interfaces\CurrentRequestServiceInterface;
+use OpenIDConnect\Interfaces\SessionIdResolverInterface;
 use Psr\Http\Message\ResponseInterface;
 
 /**
@@ -20,6 +21,7 @@ class AuthCodeGrant extends \League\OAuth2\Server\Grant\AuthCodeGrant
 {
     private ResponseInterface $psr7Response;
     private CurrentRequestServiceInterface $currentRequestService;
+    private ?SessionIdResolverInterface $sessionIdResolver;
 
     /**
      * @param AuthCodeRepositoryInterface $authCodeRepository
@@ -28,17 +30,21 @@ class AuthCodeGrant extends \League\OAuth2\Server\Grant\AuthCodeGrant
      * @param ResponseInterface $psr7Response An empty PSR-7 Response object
      * @param CurrentRequestServiceInterface $currentRequestService A service that returns the current request.
      *                                                              Used to get the nonce parameter.
+     * @param SessionIdResolverInterface|null $sessionIdResolver Resolves the OP session identifier for the
+     *                                                          `sid` claim. Null disables it.
      * @throws \Exception
      */
     public function __construct(AuthCodeRepositoryInterface $authCodeRepository,
                                 RefreshTokenRepositoryInterface $refreshTokenRepository,
                                 DateInterval $authCodeTTL,
                                 ResponseInterface $psr7Response,
-                                CurrentRequestServiceInterface $currentRequestService)
+                                CurrentRequestServiceInterface $currentRequestService,
+                                ?SessionIdResolverInterface $sessionIdResolver = null)
     {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
         $this->psr7Response = $psr7Response;
         $this->currentRequestService = $currentRequestService;
+        $this->sessionIdResolver = $sessionIdResolver;
     }
 
     /**
@@ -53,7 +59,26 @@ class AuthCodeGrant extends \League\OAuth2\Server\Grant\AuthCodeGrant
 
         $queryParams = $this->currentRequestService->getRequest()->getQueryParams();
 
+        $extraPayload = [];
+
         if (isset($queryParams['nonce'])) {
+            $extraPayload['nonce'] = $queryParams['nonce'];
+        }
+
+        // This is the one point in the flow where the end-user's session is
+        // present. The id_token is minted later, at the token endpoint, from a
+        // back-channel request that has no session of its own -- so if the
+        // session identifier is not captured here it cannot be recovered at
+        // all, and `sid` (and with it session-scoped logout) is impossible.
+        if ($this->sessionIdResolver !== null) {
+            $sessionId = $this->sessionIdResolver->resolve();
+
+            if ($sessionId !== null && $sessionId !== '') {
+                $extraPayload['sid'] = $sessionId;
+            }
+        }
+
+        if ($extraPayload !== []) {
             // The only way to get the redirect URI is to generate the PSR7 response
             // (The RedirectResponse class does not have a getter for the redirect URI)
             $httpResponse = $response->generateHttpResponse($this->psr7Response);
@@ -64,7 +89,10 @@ class AuthCodeGrant extends \League\OAuth2\Server\Grant\AuthCodeGrant
 
             $authCodePayload = json_decode($this->decrypt($query['code']), true, 512, JSON_THROW_ON_ERROR);
 
-            $authCodePayload['nonce'] = $queryParams['nonce'];
+            // Carried inside the authorization code, which is encrypted and
+            // authenticated by the server's own key, so neither value can be
+            // read or substituted by the client between the two legs.
+            $authCodePayload = array_merge($authCodePayload, $extraPayload);
 
             $query['code'] = $this->encrypt(json_encode($authCodePayload, JSON_THROW_ON_ERROR));
 

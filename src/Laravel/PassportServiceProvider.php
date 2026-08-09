@@ -16,8 +16,11 @@ use OpenIDConnect\ClaimExtractor;
 use OpenIDConnect\Claims\ClaimSet;
 use OpenIDConnect\Grant\AuthCodeGrant;
 use OpenIDConnect\IdTokenResponse;
+use OpenIDConnect\Interfaces\BackchannelLogoutClientRepositoryInterface;
 use OpenIDConnect\Interfaces\LogoutConfirmationInterface;
 use OpenIDConnect\Interfaces\PostLogoutRedirectUriRepositoryInterface;
+use OpenIDConnect\Interfaces\SessionClientRegistryInterface;
+use OpenIDConnect\Interfaces\SessionIdResolverInterface;
 use OpenIDConnect\Interfaces\SessionLogoutHandlerInterface;
 
 class PassportServiceProvider extends Passport\PassportServiceProvider
@@ -36,6 +39,19 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
         $this->app->bindIf(SessionLogoutHandlerInterface::class, SessionLogoutHandler::class);
         $this->app->bindIf(PostLogoutRedirectUriRepositoryInterface::class, PostLogoutRedirectUriRepository::class);
         $this->app->bindIf(LogoutConfirmationInterface::class, LogoutConfirmation::class);
+        $this->app->bindIf(SessionClientRegistryInterface::class, SessionClientRegistry::class);
+        $this->app->bindIf(
+            BackchannelLogoutClientRepositoryInterface::class,
+            BackchannelLogoutClientRepository::class,
+        );
+
+        // Resolved from the request rather than injected, because the container
+        // binds `session` to the session manager and this needs the store the
+        // current request is actually using.
+        $this->app->bindIf(
+            SessionIdResolverInterface::class,
+            fn ($app) => new SessionIdResolver($app['session.store']),
+        );
     }
 
     public function boot()
@@ -51,6 +67,13 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
         $this->publishes([
             __DIR__ . '/views' => $this->app->resourcePath('views/vendor/openid'),
         ], ['openid', 'openid-views']);
+
+        // Published rather than loaded, so that an application not using
+        // back-channel logout does not get a table it has no use for -- and so
+        // that one that is can control when it lands.
+        $this->publishes([
+            __DIR__ . '/migrations' => $this->app->databasePath('migrations'),
+        ], ['openid', 'openid-migrations']);
 
         $this->loadRoutesFrom(__DIR__.'/routes/web.php');
 
@@ -76,6 +99,9 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
             ),
             app(LaravelCurrentRequestService::class),
             $encryptionKey,
+            $this->backchannelLogoutEnabled()
+                ? app(SessionClientRegistryInterface::class)
+                : null,
         );
 
         return new AuthorizationServer(
@@ -101,7 +127,20 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
             new \DateInterval('PT10M'),
             new Response(),
             $this->app->make(LaravelCurrentRequestService::class),
+            // Null when back-channel logout is off, which is what keeps `sid`
+            // out of id_tokens until the application opts in.
+            $this->backchannelLogoutEnabled()
+                ? $this->app->make(SessionIdResolverInterface::class)
+                : null,
         );
+    }
+
+    /**
+     * Whether the application has opted into Back-Channel Logout.
+     */
+    protected function backchannelLogoutEnabled(): bool
+    {
+        return (bool) config('openid.backchannel_logout.enabled', false);
     }
 
     public function registerClaimExtractor() {
