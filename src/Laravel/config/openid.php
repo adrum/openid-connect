@@ -226,5 +226,30 @@ return [
          * endpoint should free the worker rather than hold it.
          */
         'timeout' => 5,
+
+        /**
+         * How long a logout token stays valid, in seconds.
+         *
+         * This has to outlast SendLogoutToken's retry schedule. The token is
+         * minted once, when the session ends, and every retry re-sends that
+         * same string -- so a retry scheduled past this point delivers
+         * something the relying party is obliged to reject, and spends an
+         * attempt doing it. The default schedule finishes at t+65s.
+         */
+        'token_ttl' => 120,
+
+        /**
+         * Allow logout URIs that resolve to private or reserved addresses.
+         *
+         * Off, because this endpoint is fetched by the OP itself from inside
+         * the network. An unchecked value in the clients table is a
+         * server-side request forgery primitive: cloud metadata endpoints,
+         * internal admin panels, anything the OP can reach and the internet
+         * cannot.
+         *
+         * Turn it on for local development, where every relying party is on
+         * 127.0.0.1 and the check would refuse all of them.
+         */
+        'allow_private_hosts' => false,
     ],
 ];

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenIDConnect\Laravel;
 
+use DateInterval;
 use Illuminate\Support\Facades\Log;
 use OpenIDConnect\Interfaces\BackchannelLogoutClientRepositoryInterface;
 use OpenIDConnect\Interfaces\SessionClientRegistryInterface;
@@ -78,6 +79,7 @@ class BackchannelLogoutNotifier
                     $clientIdentifier,
                     $includeSubject ? $subject : null,
                     $sessionId,
+                    $this->tokenTtl(),
                 );
             } catch (Throwable $e) {
                 // One client's token failing to build must not stop the
@@ -98,6 +100,20 @@ class BackchannelLogoutNotifier
         // further use, and leaving it would let a later logout that landed on a
         // recycled session identifier notify the wrong clients.
         $this->registry->forget($sessionId);
+    }
+
+    /**
+     * How long a logout token stays valid.
+     *
+     * Has to outlast SendLogoutToken's retry schedule: the token is minted once
+     * and every retry re-sends it, so anything scheduled past this point is
+     * delivering something the relying party must reject.
+     */
+    private function tokenTtl(): DateInterval
+    {
+        $seconds = (int) config('openid.backchannel_logout.token_ttl', 120);
+
+        return new DateInterval('PT' . max(1, $seconds) . 'S');
     }
 
     /**

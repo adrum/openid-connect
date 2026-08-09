@@ -35,9 +35,17 @@ class SendLogoutToken implements ShouldQueue
      * every relying party's endpoint down at once, and retrying them all on
      * the same schedule reproduces the thundering herd that caused it.
      *
+     * The schedule is bounded by the logout token's own lifetime. The token is
+     * minted once, when the session ends, and every retry re-sends that same
+     * string -- so a retry scheduled past its `exp` delivers something a
+     * spec-compliant relying party is obliged to reject, and burns an attempt
+     * doing it. The last attempt here lands at t+65s against a default token
+     * lifetime of 120s; raise `backchannel_logout.token_ttl` before stretching
+     * this, not after.
+     *
      * @var int[]
      */
-    public array $backoff = [10, 60, 300];
+    public array $backoff = [5, 15, 45];
 
     public int $tries = 4;
 
