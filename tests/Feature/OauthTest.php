@@ -18,7 +18,7 @@ class OauthTest extends TestCase
     {
         $response = Psr7ResponseFactory::default(
             $accessToken = AccessTokenFactory::default(),
-            RefreshTokenFactory::withAccessToken($accessToken)
+            RefreshTokenFactory::withAccessToken($accessToken),
         );
         $this->defaultResponseAsserts($response);
 

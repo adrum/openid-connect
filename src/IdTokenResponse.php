@@ -21,33 +21,20 @@ class IdTokenResponse extends BearerTokenResponse
 {
     use CryptTrait;
 
-    protected IdentityRepositoryInterface $identityRepository;
-
-    protected ClaimExtractor $claimExtractor;
-
-    private Configuration $config;
-    private ?CurrentRequestServiceInterface $currentRequestService;
-    private ?string $kid;
-
     public function __construct(
-        IdentityRepositoryInterface $identityRepository,
-        ClaimExtractor $claimExtractor,
-        Configuration $config,
-        ?CurrentRequestServiceInterface $currentRequestService = null,
+        protected IdentityRepositoryInterface $identityRepository,
+        protected ClaimExtractor $claimExtractor,
+        private Configuration $config,
+        private ?CurrentRequestServiceInterface $currentRequestService = null,
         Key|string|null $encryptionKey = null,
-        ?string $kid = null,
+        private ?string $kid = null,
     ) {
-        $this->identityRepository = $identityRepository;
-        $this->claimExtractor = $claimExtractor;
-        $this->config = $config;
-        $this->currentRequestService = $currentRequestService;
         $this->encryptionKey = $encryptionKey;
-        $this->kid = $kid;
     }
 
     protected function getBuilder(
         AccessTokenEntityInterface $accessToken,
-        IdentityEntityInterface $userEntity
+        IdentityEntityInterface $userEntity,
     ): Builder {
         $dateTimeImmutableObject = new DateTimeImmutable();
 

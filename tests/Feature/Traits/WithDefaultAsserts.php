@@ -15,7 +15,7 @@ trait WithDefaultAsserts
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame(
             'application/json; charset=UTF-8',
-            $response->getHeader('content-type')[0]
+            $response->getHeader('content-type')[0],
         );
 
         $response->getBody()->rewind();

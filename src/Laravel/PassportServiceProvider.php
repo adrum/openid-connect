@@ -26,7 +26,7 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
 
         $this->mergeConfigFrom(
             __DIR__ . '/config/openid.php',
-            'openid'
+            'openid',
         );
     }
 
@@ -38,7 +38,7 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
             __DIR__ . '/config/openid.php' => $this->app->configPath('openid.php'),
         ], ['openid', 'openid-config']);
 
-        $this->loadRoutesFrom(__DIR__.'/routes/web.php');
+        $this->loadRoutesFrom(__DIR__ . '/routes/web.php');
 
         $tokens_can = config('openid.passport.tokens_can', null);
         if ($tokens_can) {
@@ -89,7 +89,8 @@ class PassportServiceProvider extends Passport\PassportServiceProvider
         );
     }
 
-    public function registerClaimExtractor(): void {
+    public function registerClaimExtractor(): void
+    {
         $this->app->singleton(ClaimExtractor::class, function () {
             $customClaimSets = config('openid.custom_claim_sets');
 

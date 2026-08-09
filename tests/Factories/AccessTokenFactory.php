@@ -25,7 +25,7 @@ class AccessTokenFactory
         $accessToken->setUserIdentifier(Config::USER_ID);
         $accessToken->setIdentifier('access_token_id');
         $accessToken->setExpiryDateTime(
-            (new DateTimeImmutable())->add(new DateInterval('PT1H'))
+            (new DateTimeImmutable())->add(new DateInterval('PT1H')),
         );
 
         if ($scopes) {

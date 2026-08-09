@@ -16,7 +16,7 @@ class ScopeRepository implements ScopeRepositoryInterface
         string $grantType,
         ClientEntityInterface $clientEntity,
         ?string $userIdentifier = null,
-        ?string $authCodeId = null
+        ?string $authCodeId = null,
     ): array {
         return array_filter($scopes, function (ScopeEntityInterface $scope) {
             return $this->getScopeEntityByIdentifier($scope->getIdentifier());

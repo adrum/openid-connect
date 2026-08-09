@@ -23,7 +23,7 @@ class Psr7ResponseFactory
     ): Psr7\Response {
         $response = $response ?? IdTokenResponseFactory::default(
             new IdentityRepository(),
-            new ClaimExtractor()
+            new ClaimExtractor(),
         );
 
         $response->setPrivateKey($privateKey ?? KeyFactory::cryptKey());
@@ -44,7 +44,7 @@ class Psr7ResponseFactory
     public static function withIdTokenResponse(
         AccessTokenEntityInterface $accessToken,
         RefreshTokenEntityInterface $refreshToken,
-        IdTokenResponse $response
+        IdTokenResponse $response,
     ): Psr7\Response {
         return (new static())->build($accessToken, $refreshToken, $response);
     }
@@ -60,8 +60,8 @@ class Psr7ResponseFactory
             IdTokenResponseFactory::withConfig(
                 new IdentityRepository(),
                 new ClaimExtractor(),
-                $config
-            )
+                $config,
+            ),
         );
     }
 }
