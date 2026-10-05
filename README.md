@@ -165,6 +165,23 @@ discovery document by naming the route `openid.userinfo`.
 Route::get('/oauth/userinfo', 'YourController@userinfo')->middleware('xxx')->name('openid.userinfo');
 ```
 
+### Device Authorization Grant
+
+Laravel Passport 13 ships the [RFC 8628](https://datatracker.ietf.org/doc/html/rfc8628) device
+authorization grant, and it is enabled by default. A device that requests the `openid` scope receives
+an `id_token` alongside its access token, just as it would from the authorization code grant.
+
+While the grant is enabled, the discovery document publishes `device_authorization_endpoint` and lists
+`urn:ietf:params:oauth:grant-type:device_code` in `grant_types_supported`. To turn the flow off, disable
+it in Passport from the `register` method of a service provider:
+
+```php
+Passport::$deviceCodeGrantEnabled = false;
+```
+
+An `id_token` issued through this grant carries no `nonce` or `sid` claim, since the device never
+visits the authorization endpoint.
+
 ### RP-Initiated Logout
 
 An [RP-Initiated Logout](https://openid.net/specs/openid-connect-rpinitiated-1_0.html) end session
