@@ -30,12 +30,14 @@ class SessionClientRegistry implements SessionClientRegistryInterface
         // within the same session -- a second authorization for a wider scope,
         // say -- should refresh the row, not collide with it or duplicate it.
         $this->query()->upsert(
-            [[
-                'session_id' => $sessionId,
-                'client_id' => $clientIdentifier,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]],
+            [
+                [
+                    'session_id' => $sessionId,
+                    'client_id' => $clientIdentifier,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ],
+            ],
             ['session_id', 'client_id'],
             ['updated_at'],
         );

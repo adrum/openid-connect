@@ -1,11 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-
 /**
  * Which clients took part in which OP session.
  *
@@ -15,8 +9,14 @@ use Illuminate\Support\Facades\Schema;
  * involved that this user signed in somewhere, and grows with the client list
  * rather than the session -- or to notify nobody.
  */
-return new class extends Migration
-{
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class() extends Migration {
     public function up(): void
     {
         Schema::create($this->table(), function (Blueprint $table): void {
